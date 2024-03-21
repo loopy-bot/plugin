@@ -11,12 +11,14 @@ import com.alibaba.dashscope.audio.tts.SpeechSynthesisAudioFormat;
 import com.alibaba.dashscope.audio.tts.SpeechSynthesisParam;
 import com.alibaba.dashscope.audio.tts.SpeechSynthesizer;
 import com.alibaba.dashscope.exception.NoApiKeyException;
+import com.loopy.loopy.plugins.Engine.AbstractEngine;
+import com.loopy.loopy.plugins.Engine.EngineFactory;
 import com.loopy.loopy.plugins.common.AjaxResult;
 import com.loopy.loopy.plugins.request.ChatRequest;
 import com.loopy.loopy.plugins.response.ChatResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,17 +33,42 @@ import java.nio.charset.StandardCharsets;
 @RequestMapping("/plugin")
 public class PluginController {
 
-    @Value("${api.key}")
-    private String tongYiApiKey;
-
     private static final Logger logger = LoggerFactory.getLogger(PluginController.class);
-    private static final String TIANXING_APIKEY = "";
+    private static final String TIAN_XING_API_KEY = "48c431c1b759a2b6882e960d24a3403c";
+    private static final String TONG_YI_API_KEY = "sk-554382667176404bb1c35d59ac5d4096";
     private static final String ALIYUN_CHAT_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation";
     private static final String CITY_LOOKUP_URL = "https://apis.tianapi.com/citylookup/index";
     private static final String AUDIO_MODEL = "sambert-zhistella-v1";
 
-//    @Resource
-//    private SelectPluginEngine selectPluginEngine;
+
+
+    @PostMapping("/audio")
+    public ResponseEntity<byte[]> syncTextToAudio(String question){
+        ChatResponse chatResponse = (ChatResponse) chat(question).get("data");
+        ChatResponse.Output output = chatResponse.getOutput();
+        String text = output.getText();
+        SpeechSynthesizer synthesizer = new SpeechSynthesizer();
+        SpeechSynthesisParam param = SpeechSynthesisParam.builder()
+          .model(AUDIO_MODEL)
+          .text(text)
+          .sampleRate(48000)
+          .format(SpeechSynthesisAudioFormat.WAV)
+          .apiKey(TONG_YI_API_KEY)
+          .build();
+
+        File file = new File("output.wav");
+        // 调用call方法，传入param参数，获取合成音频
+        ByteBuffer audio = synthesizer.call(param);
+        try (FileOutputStream fos = new FileOutputStream(file)) {
+            fos.write(audio.array());
+            logger.info("synthesis done!");
+            return new ResponseEntity<>(audio.array(), HttpStatus.OK);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+//        System.exit(0);
+
+    }
 
     @PostMapping("/chat")
     public AjaxResult chat(String question) {
@@ -50,7 +77,7 @@ public class PluginController {
         String json = JSONUtil.toJsonStr(chatRequest);
         //System.out.println(json);//正式发送给api前,查看请求的主要数据情况
         String result = HttpRequest.post(ALIYUN_CHAT_URL)
-                .header("Authorization", "Bearer " + tongYiApiKey)
+                .header("Authorization", "Bearer " + TONG_YI_API_KEY)
                 .header("Content-Type", "application/json")
                 .body(json)
                 .execute().body();
@@ -64,7 +91,7 @@ public class PluginController {
         ImageSynthesis is = new ImageSynthesis();
         ImageSynthesisParam param =
                 ImageSynthesisParam.builder()
-                        .apiKey(tongYiApiKey)
+                        .apiKey(TONG_YI_API_KEY)
                         .model(ImageSynthesis.Models.WANX_V1)
                         .n(4)
                         .size("1024*1024")
@@ -88,7 +115,7 @@ public class PluginController {
             conn.setDoOutput(true);
             conn.setRequestProperty("content-type", "application/x-www-form-urlencoded");
             OutputStream outputStream = conn.getOutputStream();
-            String content = "key="+TIANXING_APIKEY+"&area="+city;
+            String content = "key="+TIAN_XING_API_KEY+"&area="+city;
             outputStream.write(content.getBytes());
             outputStream.flush();
             outputStream.close();
@@ -109,6 +136,18 @@ public class PluginController {
         return AjaxResult.returnSuccessDataResult(tianApiData);
     }
 
+    @PostMapping("/ti-an")
+    public AjaxResult getTianXingResponse(String question){
+        String[] keyWords = {"星座", "天气","IT资讯"};
+        for (String word : keyWords){
+            if (question.contains(word)){
+                AbstractEngine engine = EngineFactory.getInvokeEngine(word);
+                String answer = engine.getAnswer(word);
+                return AjaxResult.returnSuccessDataResult(answer);
+            }
+        }
+        return AjaxResult.error("目前没有相关的接口回答您的问题");
+    }
 
 //    @GetMapping("/ip")
 //    public String getRequestIP(HttpServletRequest request) {
@@ -116,34 +155,6 @@ public class PluginController {
 //        return request.getRemoteAddr();
 //    }
 
-    @PostMapping("/audio")
-    public ResponseEntity<byte[]> syncTextToAudio(String question){
-        ChatResponse chatResponse = (ChatResponse) chat(question).get("data");
-        ChatResponse.Output output = chatResponse.getOutput();
-        String text = output.getText();
-        SpeechSynthesizer synthesizer = new SpeechSynthesizer();
-        SpeechSynthesisParam param = SpeechSynthesisParam.builder()
-          .model(AUDIO_MODEL)
-          .text(text)
-          .sampleRate(48000)
-          .format(SpeechSynthesisAudioFormat.WAV)
-          .apiKey(tongYiApiKey)
-          .build();
-
-        File file = new File("output.wav");
-        // 调用call方法，传入param参数，获取合成音频
-        ByteBuffer audio = synthesizer.call(param);
-        try (FileOutputStream fos = new FileOutputStream(file)) {
-            fos.write(audio.array());
-            logger.info("synthesis done!");
-            return new ResponseEntity<>(audio.array(), HttpStatus.OK);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-//        System.exit(0);
-
-
-    }
 
 //    public byte[] byteBufferToByteArray(ByteBuffer byteBuffer){
 //        int len = byteBuffer.limit() - byteBuffer.position();
