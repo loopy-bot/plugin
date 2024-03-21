@@ -1,0 +1,20 @@
+server:
+  port: 8082
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username:
+    url:
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+welcome:
+  message: Welcome to Loopy
+
+api:
+  key: sk-554382667176404bb1c35d59ac5d4096
+
