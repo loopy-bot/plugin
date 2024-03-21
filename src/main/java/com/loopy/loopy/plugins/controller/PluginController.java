@@ -34,10 +34,8 @@ import java.nio.charset.StandardCharsets;
 public class PluginController {
 
     private static final Logger logger = LoggerFactory.getLogger(PluginController.class);
-    private static final String TIAN_XING_API_KEY = "48c431c1b759a2b6882e960d24a3403c";
     private static final String TONG_YI_API_KEY = "sk-554382667176404bb1c35d59ac5d4096";
     private static final String ALIYUN_CHAT_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation";
-    private static final String CITY_LOOKUP_URL = "https://apis.tianapi.com/citylookup/index";
     private static final String AUDIO_MODEL = "sambert-zhistella-v1";
 
 
@@ -103,46 +101,14 @@ public class PluginController {
         return AjaxResult.returnSuccessDataResult(result);
     }
 
-    @PostMapping("/map")
-    public AjaxResult getRelatedCity(String city) {
-        String tianApiData = "";
-        try {
-            URL url = new URL(CITY_LOOKUP_URL);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
-            conn.setDoOutput(true);
-            conn.setRequestProperty("content-type", "application/x-www-form-urlencoded");
-            OutputStream outputStream = conn.getOutputStream();
-            String content = "key="+TIAN_XING_API_KEY+"&area="+city;
-            outputStream.write(content.getBytes());
-            outputStream.flush();
-            outputStream.close();
-            InputStream inputStream = conn.getInputStream();
-            InputStreamReader inputStreamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
-            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
-            StringBuilder tianapi = new StringBuilder();
-            String temp = null;
-            while (null != (temp = bufferedReader.readLine())) {
-                tianapi.append(temp);
-            }
-            tianApiData = tianapi.toString();
-            inputStream.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        logger.info(tianApiData);
-        return AjaxResult.returnSuccessDataResult(tianApiData);
-    }
 
     @PostMapping("/ti-an")
     public AjaxResult getTianXingResponse(String question){
-        String[] keyWords = {"星座", "天气","IT资讯"};
+        String[] keyWords = {"星座", "天气","IT资讯","地图"};
         for (String word : keyWords){
             if (question.contains(word)){
                 AbstractEngine engine = EngineFactory.getInvokeEngine(word);
-                String answer = engine.getAnswer(word);
+                String answer = engine.getAnswer(question);
                 return AjaxResult.returnSuccessDataResult(answer);
             }
         }
