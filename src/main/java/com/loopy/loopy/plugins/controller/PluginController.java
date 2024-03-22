@@ -16,7 +16,6 @@ import com.loopy.loopy.plugins.Engine.EngineFactory;
 import com.loopy.loopy.plugins.common.AjaxResult;
 import com.loopy.loopy.plugins.request.ChatRequest;
 import com.loopy.loopy.plugins.response.ChatResponse;
-import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -24,10 +23,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
+
 
 @RestController
 @RequestMapping("/plugin")
@@ -41,7 +38,8 @@ public class PluginController {
 
 
     @PostMapping("/audio")
-    public ResponseEntity<byte[]> syncTextToAudio(String question){
+    @ResponseBody
+    public ResponseEntity<byte[]> syncTextToAudio(@RequestBody String question){
         ChatResponse chatResponse = (ChatResponse) chat(question).get("data");
         ChatResponse.Output output = chatResponse.getOutput();
         String text = output.getText();
@@ -69,7 +67,8 @@ public class PluginController {
     }
 
     @PostMapping("/chat")
-    public AjaxResult chat(String question) {
+    @ResponseBody
+    public AjaxResult chat(@RequestBody String question) {
 
         ChatRequest chatRequest = new ChatRequest(question);
         String json = JSONUtil.toJsonStr(chatRequest);
@@ -84,7 +83,8 @@ public class PluginController {
     }
 
     @PostMapping("/draw")
-    public AjaxResult drawPlugin(String prompt) throws NoApiKeyException {
+    @ResponseBody
+    public AjaxResult drawPlugin(@RequestBody String prompt) throws NoApiKeyException {
 
         ImageSynthesis is = new ImageSynthesis();
         ImageSynthesisParam param =
@@ -103,7 +103,8 @@ public class PluginController {
 
 
     @PostMapping("/ti-an")
-    public AjaxResult getTianXingResponse(String question){
+    @ResponseBody
+    public AjaxResult getTianXingResponse(@RequestBody String question){
         String[] keyWords = {"星座", "天气","IT资讯","地图"};
         for (String word : keyWords){
             if (question.contains(word)){
