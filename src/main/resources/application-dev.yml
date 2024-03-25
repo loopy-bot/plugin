@@ -18,3 +18,4 @@ welcome:
 
 file:
   audio_path: /Users/savannahwang/Downloads/Loopy/loopy-plugins/src/main/resources/static/audio
+  image_path: /Users/savannahwang/Downloads/Loopy/loopy-plugins/src/main/resources/static/image

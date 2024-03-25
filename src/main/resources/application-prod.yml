@@ -18,3 +18,4 @@ welcome:
 
 file:
   audio_path: /root/plugin/static/audio
+  image_path: /root/plugin/static/image

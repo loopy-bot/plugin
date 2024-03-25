@@ -17,7 +17,6 @@ import com.alibaba.dashscope.common.Message;
 import com.alibaba.dashscope.common.Role;
 import com.alibaba.dashscope.exception.InputRequiredException;
 import com.alibaba.dashscope.exception.NoApiKeyException;
-import com.alibaba.dashscope.utils.JsonUtils;
 import com.loopy.loopy.plugins.Engine.AbstractEngine;
 import com.loopy.loopy.plugins.Engine.EngineFactory;
 import com.loopy.loopy.plugins.common.AjaxResult;
@@ -29,11 +28,10 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.*;
+import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.*;
 
@@ -44,6 +42,9 @@ public class PluginController {
 
     @Value("${file.audio_path}")
     public String audioPath;
+
+    @Value("${file.image_path}")
+    public String imagePath;
 
     private static final Logger logger = LoggerFactory.getLogger(PluginController.class);
     private static final String TONG_YI_API_KEY = "sk-554382667176404bb1c35d59ac5d4096";
@@ -131,7 +132,6 @@ public class PluginController {
 
 
     @PostMapping("/draw")
-    @ResponseBody
     public AjaxResult drawPlugin(@RequestBody String prompt) throws NoApiKeyException {
 
         ImageSynthesis is = new ImageSynthesis();
@@ -145,7 +145,14 @@ public class PluginController {
                         .build();
 
         ImageSynthesisResult result = is.call(param);
-        System.out.println(result);
+        String filePath;
+        List<Map<String, String>> results = result.getOutput().getResults();
+        for (Map<String, String> stringStringMap : results) {
+            String url = stringStringMap.get("url");
+            logger.info(url);
+            filePath = saveImage(url);
+            stringStringMap.put("url", filePath);
+        }
         return AjaxResult.returnSuccessDataResult(result);
     }
 
@@ -243,5 +250,52 @@ public class PluginController {
 	public void incrementMessages(PostData postData){
 		MULTI_MESSAGES.computeIfAbsent(postData.getKey(), p -> new LinkedList<>()).add(postData);
 	}
+
+    public String saveImage(String imageUrl) {
+        try {
+            // 创建URL对象
+            URL url = new URL(imageUrl);
+            // 打开连接
+            InputStream inputStream = url.openStream();
+
+            String fileName = imagePath + "/" + splitString(imageUrl) + ".png";
+            // 创建文件输出流
+            FileOutputStream outputStream = new FileOutputStream(fileName);
+
+            // 创建缓冲区
+            byte[] buffer = new byte[4096];
+            int bytesRead;
+
+            // 将输入流的内容读到缓冲区，然后写入文件输出流
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+            }
+
+            // 关闭流
+            outputStream.close();
+            inputStream.close();
+
+            logger.info("图片已保存至：" + imagePath);
+            return fileName;
+        } catch (IOException e) {
+            e.printStackTrace();
+            logger.info("图片保存失败：" + e.getMessage());
+        }
+        return null;
+    }
+
+    public String splitString(String url){
+        String field = "Signature=";
+
+        // 使用split方法，限制分割次数为2
+        String[] parts = url.split(field, 2);
+        if (parts.length > 1) {
+            // 输出字段后的内容
+            logger.info(parts[1]);
+            return parts[1];// 输出 "value"
+        }
+        return null;
+    }
+
 
 }
