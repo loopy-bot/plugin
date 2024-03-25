@@ -28,6 +28,7 @@ import com.loopy.loopy.plugins.response.ChatResponse;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -41,6 +42,9 @@ import java.util.*;
 @RequestMapping("/plugin")
 public class PluginController {
 
+    @Value("${file.audio_path}")
+    public String audioPath;
+
     private static final Logger logger = LoggerFactory.getLogger(PluginController.class);
     private static final String TONG_YI_API_KEY = "sk-554382667176404bb1c35d59ac5d4096";
     private static final String ALIYUN_CHAT_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation";
@@ -52,10 +56,12 @@ public class PluginController {
 
     @PostMapping("/audio")
     @ResponseBody
-    public ResponseEntity<byte[]> syncTextToAudio(@RequestBody String question) {
+//    public ResponseEntity<byte[]> syncTextToAudio(@RequestBody String question) {
+    public AjaxResult syncTextToAudio(@RequestBody String question) {
         ChatResponse chatResponse = (ChatResponse) chat(question).get("data");
         ChatResponse.Output output = chatResponse.getOutput();
         String text = output.getText();
+        String requestId = chatResponse.getRequest_id().substring(0,8);
         SpeechSynthesizer synthesizer = new SpeechSynthesizer();
         SpeechSynthesisParam param = SpeechSynthesisParam.builder()
                 .model(AUDIO_MODEL)
@@ -65,13 +71,15 @@ public class PluginController {
                 .apiKey(TONG_YI_API_KEY)
                 .build();
 
-        File file = new File("output.wav");
+        String path = audioPath + "/output" + requestId + ".wav";
+        File file = new File(path);
         // 调用call方法，传入param参数，获取合成音频
         ByteBuffer audio = synthesizer.call(param);
         try (FileOutputStream fos = new FileOutputStream(file)) {
             fos.write(audio.array());
             logger.info("synthesis done!");
-            return new ResponseEntity<>(audio.array(), HttpStatus.OK);
+//            return new ResponseEntity<>(audio.array(), HttpStatus.OK);
+            return AjaxResult.returnSuccessDataResult(path);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
