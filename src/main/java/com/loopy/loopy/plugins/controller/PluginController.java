@@ -62,7 +62,7 @@ public class PluginController {
         ChatResponse chatResponse = (ChatResponse) chat(question).get("data");
         ChatResponse.Output output = chatResponse.getOutput();
         String text = output.getText();
-        String requestId = chatResponse.getRequest_id().substring(0,8);
+//        String requestId = chatResponse.getRequest_id().substring(0,8);
         SpeechSynthesizer synthesizer = new SpeechSynthesizer();
         SpeechSynthesisParam param = SpeechSynthesisParam.builder()
                 .model(AUDIO_MODEL)
@@ -72,7 +72,8 @@ public class PluginController {
                 .apiKey(TONG_YI_API_KEY)
                 .build();
 
-        String path = audioPath + "/output" + requestId + ".wav";
+        long currentTime = System.currentTimeMillis();
+        String path = audioPath + "/output" + currentTime + ".wav";
         File file = new File(path);
         // 调用call方法，传入param参数，获取合成音频
         ByteBuffer audio = synthesizer.call(param);
@@ -253,12 +254,13 @@ public class PluginController {
 
     public String saveImage(String imageUrl) {
         try {
+            long currentTime = System.currentTimeMillis();
             // 创建URL对象
             URL url = new URL(imageUrl);
             // 打开连接
             InputStream inputStream = url.openStream();
 
-            String fileName = imagePath + "/" + splitString(imageUrl) + ".png";
+            String fileName = imagePath + "/" + currentTime + ".png";
             // 创建文件输出流
             FileOutputStream outputStream = new FileOutputStream(fileName);
 
@@ -284,18 +286,18 @@ public class PluginController {
         return null;
     }
 
-    public String splitString(String url){
-        String field = "Signature=";
-
-        // 使用split方法，限制分割次数为2
-        String[] parts = url.split(field, 2);
-        if (parts.length > 1) {
-            // 输出字段后的内容
-            logger.info(parts[1]);
-            return parts[1];// 输出 "value"
-        }
-        return null;
-    }
+//    public String splitString(String url){
+//        String field = "Signature=";
+//
+//        // 使用split方法，限制分割次数为2
+//        String[] parts = url.split(field, 2);
+//        if (parts.length > 1) {
+//            // 输出字段后的内容
+//            logger.info(parts[1]);
+//            return parts[1];// 输出 "value"
+//        }
+//        return null;
+//    }
 
 
 }
