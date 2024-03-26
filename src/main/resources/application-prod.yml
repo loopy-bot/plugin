@@ -17,5 +17,5 @@ welcome:
   message: Welcome to Loopy
 
 file:
-  audio_path: /root/plugin/static/audio
-  image_path: /root/plugin/static/image
+  audio_path: /home/nginx/html/static/audio
+  image_path: /home/nginx/html/static/image
