@@ -76,12 +76,16 @@ public class ModelController {
                 //首发
                 incrementMessages(postData);
                 FORMER_REQUEST = getFirstResponse(postData);
-                return AjaxResult.returnSuccessDataResult(FORMER_REQUEST.getFormerResult());
+                GenerationResult generationResult = FORMER_REQUEST.getFormerResult();
+                Message data = generationResult.getOutput().getChoices().get(0).getMessage();
+                return AjaxResult.returnSuccessDataResult(data);
             } else {
                 if (isAllowedToSendMessage(postData.getKey())) {
                     incrementMessages(postData);
                     FORMER_REQUEST = getNextResponse(postData, FORMER_REQUEST);
-                    return AjaxResult.returnSuccessDataResult(FORMER_REQUEST.getFormerResult());
+                    GenerationResult generationResult = FORMER_REQUEST.getFormerResult();
+                    Message data = generationResult.getOutput().getChoices().get(0).getMessage();
+                    return AjaxResult.returnSuccessDataResult(data);
                 } else {
                     return AjaxResult.error("很抱歉，目前只支持3轮问答");
                 }
