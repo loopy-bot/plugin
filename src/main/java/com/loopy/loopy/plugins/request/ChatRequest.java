@@ -20,6 +20,11 @@ public class ChatRequest {
         input = new Input(q);
         parameters = new Parameters();
     }
+    public ChatRequest(String q, String m){
+        model  = m;
+        input = new Input(q);
+        parameters = new Parameters();
+    }
     class Input {
         public List<Chat> messages;
         Input(String q){
