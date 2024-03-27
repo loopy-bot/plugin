@@ -12,6 +12,8 @@ import com.alibaba.dashscope.audio.tts.SpeechSynthesisParam;
 import com.alibaba.dashscope.audio.tts.SpeechSynthesizer;
 import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.loopy.loopy.plugins.common.AjaxResult;
+import com.loopy.loopy.plugins.common.FileData;
+import com.loopy.loopy.plugins.common.PluginData;
 import com.loopy.loopy.plugins.request.ChatRequest;
 import com.loopy.loopy.plugins.response.ChatResponse;
 
@@ -64,7 +66,10 @@ public class PluginController {
         try (FileOutputStream fos = new FileOutputStream(file)) {
             fos.write(audio.array());
             logger.info("synthesis done!");
-            return AjaxResult.returnSuccessDataResult(path);
+            String name = "output" + currentTime + ".wav";
+            String url = "/audio/output" + currentTime + ".wav";
+            PluginData pluginData = new PluginData("file", null, new FileData(name, url));
+            return AjaxResult.returnSuccessDataResult(pluginData);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -100,13 +105,16 @@ public class PluginController {
         ImageSynthesisResult result = is.call(param);
         String filePath;
         List<Map<String, String>> results = result.getOutput().getResults();
+        PluginData pluginData = null;
         for (Map<String, String> stringStringMap : results) {
             String url = stringStringMap.get("url");
             logger.info(url);
             filePath = saveImage(url);
+            String fileName = filePath.replace("/image/", "");
             stringStringMap.put("url", filePath);
+            pluginData = new PluginData("file", null, new FileData(fileName, filePath));
         }
-        return AjaxResult.returnSuccessDataResult(result);
+        return AjaxResult.returnSuccessDataResult(pluginData);
     }
 
 
@@ -136,7 +144,7 @@ public class PluginController {
             inputStream.close();
 
             logger.info("图片已保存至：" + imagePath);
-            return fileName;
+            return "/image/" + currentTime + ".png";
         } catch (IOException e) {
             e.printStackTrace();
             logger.info("图片保存失败：" + e.getMessage());
