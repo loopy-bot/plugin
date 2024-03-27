@@ -20,6 +20,7 @@ import com.loopy.loopy.plugins.Engine.AbstractEngine;
 import com.loopy.loopy.plugins.Engine.EngineFactory;
 import com.loopy.loopy.plugins.common.AjaxResult;
 import com.loopy.loopy.plugins.common.FormerRequest;
+import com.loopy.loopy.plugins.common.ModelData;
 import com.loopy.loopy.plugins.common.PostData;
 import com.loopy.loopy.plugins.request.ChatRequest;
 import com.loopy.loopy.plugins.response.ChatResponse;
@@ -61,7 +62,9 @@ public class ModelController {
                 .body(json)
                 .execute().body();
         logger.info(result);
-        return AjaxResult.returnSuccessDataResult(JSONUtil.toBean(result, ChatResponse.class));
+        ChatResponse chatResponse = JSONUtil.toBean(result, ChatResponse.class);
+        String text = chatResponse.getOutput().getText();
+        return AjaxResult.returnSuccessDataResult(new ModelData("assistant", text));
     }
 
 
