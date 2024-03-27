@@ -1,7 +1,11 @@
 package com.loopy.loopy.plugins.common;
 
+import com.alibaba.dashscope.audio.asr.phrase.AsrPhraseInfo;
+import com.loopy.loopy.plugins.model.Kimi;
+import com.loopy.loopy.plugins.model.Qwen;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Data
@@ -13,20 +17,25 @@ public class PostData {
 
     String model;
 
+    String question;
+
     Messages messages;
 
     String personality;
 
-
-//    Config config;
+    Config config;
 
     public class Messages {
         public String role;
         public String content;
     }
 
-//    class Config {
-//
-//    }
+    public class Config {
+        @Getter
+        public Kimi kimi;
+        @Getter
+        public Qwen qwen;
+
+    }
 
 }
