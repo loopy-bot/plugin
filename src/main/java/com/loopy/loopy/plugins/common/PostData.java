@@ -17,16 +17,11 @@ public class PostData {
 
     String model;
 
-    Question question;
+    String question;
 
     String personality;
 
     Config config;
-
-    public class Question {
-        public String role;
-        public String content;
-    }
 
     public class Config {
         @Getter
