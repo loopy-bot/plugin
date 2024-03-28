@@ -39,11 +39,13 @@ public class ModelController {
 
     private static FormerRequest formerRequest;
 
+    private static String personality;
+
 
     @PostMapping("/generate")
     public static AjaxResult generate(@RequestBody PostData postData) {
         String model = getModelConfigurer(postData);
-        ChatRequest chatRequest = new ChatRequest(postData.getQuestion().content, model);
+        ChatRequest chatRequest = new ChatRequest(postData.getQuestion(), model);
         String json = JSONUtil.toJsonStr(chatRequest);
         //System.out.println(json);//正式发送给api前,查看请求的主要数据情况
         String result = HttpRequest.post(ALIYUN_CHAT_URL)
@@ -107,15 +109,14 @@ public class ModelController {
     private static FormerRequest getFirstResponse(PostData postData) throws NoApiKeyException, InputRequiredException {
         Generation gen = new Generation();
         String model = getModelConfigurer(postData);
-        String systemRole;
         if (postData.getPersonality() != null) {
-            systemRole = postData.getPersonality();
+            personality = postData.getPersonality();
         } else {
-            systemRole = "You are a helpful assistant.";
+            personality = "assistant";
         }
         Message systemMsg =
-                Message.builder().role(Role.SYSTEM.getValue()).content(systemRole).build();
-        Message userMsg = Message.builder().role(Role.USER.getValue()).content(postData.getQuestion().content).build();
+                Message.builder().role(Role.SYSTEM.getValue()).content(personality).build();
+        Message userMsg = Message.builder().role(Role.USER.getValue()).content(postData.getQuestion()).build();
         List<Message> messages = new ArrayList<>();
         messages.add(systemMsg);
         messages.add(userMsg);
@@ -158,7 +159,7 @@ public class ModelController {
         List<Message> latterMessage = formerRequest.getMessages();
         latterMessage.add(formerMessage);
         // new message
-        Message userMsg = Message.builder().role(Role.USER.getValue()).content(postData.getQuestion().content).build();
+        Message userMsg = Message.builder().role(Role.USER.getValue()).content(postData.getQuestion()).build();
         latterMessage.add(userMsg);
         GenerationResult result = gen.call(param);
         return new FormerRequest(result, formerRequest.getMessages());
