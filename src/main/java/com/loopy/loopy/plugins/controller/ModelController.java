@@ -89,7 +89,7 @@ public class ModelController {
         formerRequest = getNextResponse(postData, formerRequest);
         GenerationResult generationResult = formerRequest.getFormerResult();
         Message data = generationResult.getOutput().getChoices().get(0).getMessage();
-        incrementMessages(postData.getKey(), data);
+         incrementMessages(postData.getKey(), data);
         return AjaxResult.returnSuccessDataResult(data);
     }
 
@@ -158,6 +158,10 @@ public class ModelController {
         Message formerMessage = formerRequest.getFormerResult().getOutput().getChoices().get(0).getMessage();
         List<Message> latterMessage = formerRequest.getMessages();
         latterMessage.add(formerMessage);
+        if (latterMessage.size() == 7){
+            latterMessage.remove(1);
+            latterMessage.remove(1);
+        }
         // new message
         Message userMsg = Message.builder().role(Role.USER.getValue()).content(postData.getQuestion()).build();
         latterMessage.add(userMsg);
