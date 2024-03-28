@@ -90,7 +90,7 @@ public class PluginController {
 
 
     @PostMapping("/draw")
-    public AjaxResult drawPlugin(@RequestBody String prompt) throws NoApiKeyException {
+    public AjaxResult drawPlugin(@RequestBody String question) throws NoApiKeyException {
 
         ImageSynthesis is = new ImageSynthesis();
         ImageSynthesisParam param =
@@ -99,7 +99,7 @@ public class PluginController {
                         .model(ImageSynthesis.Models.WANX_V1)
                         .n(4)
                         .size("1024*1024")
-                        .prompt(prompt)
+                        .prompt(question)
                         .build();
 
         ImageSynthesisResult result = is.call(param);
