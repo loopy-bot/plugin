@@ -1,17 +1,12 @@
 package com.loopy.loopy.plugins.controller;
 
+
 import cn.hutool.http.HttpRequest;
 import cn.hutool.json.JSONUtil;
 
 import com.alibaba.dashscope.aigc.generation.Generation;
 import com.alibaba.dashscope.aigc.generation.GenerationParam;
 import com.alibaba.dashscope.aigc.generation.GenerationResult;
-import com.alibaba.dashscope.aigc.imagesynthesis.ImageSynthesis;
-import com.alibaba.dashscope.aigc.imagesynthesis.ImageSynthesisParam;
-import com.alibaba.dashscope.aigc.imagesynthesis.ImageSynthesisResult;
-import com.alibaba.dashscope.audio.tts.SpeechSynthesisAudioFormat;
-import com.alibaba.dashscope.audio.tts.SpeechSynthesisParam;
-import com.alibaba.dashscope.audio.tts.SpeechSynthesizer;
 import com.alibaba.dashscope.common.Message;
 import com.alibaba.dashscope.common.Role;
 import com.alibaba.dashscope.exception.InputRequiredException;
@@ -27,12 +22,8 @@ import com.loopy.loopy.plugins.response.ChatResponse;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.*;
-import java.net.URL;
-import java.nio.ByteBuffer;
 import java.util.*;
 
 
@@ -43,17 +34,16 @@ public class ModelController {
     private static final Logger logger = LoggerFactory.getLogger(ModelController.class);
     private static final String TONG_YI_API_KEY = "sk-554382667176404bb1c35d59ac5d4096";
     private static final String ALIYUN_CHAT_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation";
-    private static final Map<String, Queue<PostData>> MULTI_MESSAGES = new HashMap<>();
+    private static final Map<String, Queue<Message>> MULTI_MESSAGES = new HashMap<>();
     private static final int MAX_ATTEMPTS = 3;
 
-    private static FormerRequest FORMER_REQUEST;
+    private static FormerRequest formerRequest;
 
 
     @PostMapping("/generate")
-    @ResponseBody
-    public AjaxResult generate(@RequestBody PostData postData) {
+    public static AjaxResult generate(@RequestBody PostData postData) {
         String model = getModelConfigurer(postData);
-        ChatRequest chatRequest = new ChatRequest(postData.getQuestion(), model);
+        ChatRequest chatRequest = new ChatRequest(postData.getQuestion().content, model);
         String json = JSONUtil.toJsonStr(chatRequest);
         //System.out.println(json);//正式发送给api前,查看请求的主要数据情况
         String result = HttpRequest.post(ALIYUN_CHAT_URL)
@@ -69,25 +59,21 @@ public class ModelController {
 
 
     @PostMapping("/chat")
-    @ResponseBody
-    public AjaxResult chat(@RequestBody PostData postData) throws NoApiKeyException, InputRequiredException {
+    public static AjaxResult chat(@RequestBody PostData postData) throws NoApiKeyException, InputRequiredException {
         if (postData.getKey() != null) {
             if (MULTI_MESSAGES.get(postData.getKey()) == null) {
                 //首发
-                incrementMessages(postData);
-                FORMER_REQUEST = getFirstResponse(postData);
-                GenerationResult generationResult = FORMER_REQUEST.getFormerResult();
+                formerRequest = getFirstResponse(postData);
+                GenerationResult generationResult = formerRequest.getFormerResult();
                 Message data = generationResult.getOutput().getChoices().get(0).getMessage();
+                incrementMessages(postData.getKey(),data);
                 return AjaxResult.returnSuccessDataResult(data);
             } else {
                 if (isAllowedToSendMessage(postData.getKey())) {
-                    incrementMessages(postData);
-                    FORMER_REQUEST = getNextResponse(postData, FORMER_REQUEST);
-                    GenerationResult generationResult = FORMER_REQUEST.getFormerResult();
-                    Message data = generationResult.getOutput().getChoices().get(0).getMessage();
-                    return AjaxResult.returnSuccessDataResult(data);
+                    return getNonFirstResult(postData);
                 } else {
-                    return AjaxResult.error("很抱歉，目前只支持3轮问答");
+                    removeHeadMessage(postData.getKey());
+                    return getNonFirstResult(postData);
                 }
             }
 
@@ -96,8 +82,16 @@ public class ModelController {
         }
     }
 
+    @NotNull
+    private static AjaxResult getNonFirstResult(PostData postData) throws NoApiKeyException, InputRequiredException {
+        formerRequest = getNextResponse(postData, formerRequest);
+        GenerationResult generationResult = formerRequest.getFormerResult();
+        Message data = generationResult.getOutput().getChoices().get(0).getMessage();
+        incrementMessages(postData.getKey(), data);
+        return AjaxResult.returnSuccessDataResult(data);
+    }
+
     @PostMapping("/ti-an")
-    @ResponseBody
     public AjaxResult getTianXingResponse(@RequestBody String question) {
         String[] keyWords = {"星座", "天气", "IT资讯", "地图"};
         for (String word : keyWords) {
@@ -110,7 +104,7 @@ public class ModelController {
         return AjaxResult.error("目前没有相关的接口回答您的问题");
     }
 
-    public FormerRequest getFirstResponse(PostData postData) throws NoApiKeyException, InputRequiredException {
+    private static FormerRequest getFirstResponse(PostData postData) throws NoApiKeyException, InputRequiredException {
         Generation gen = new Generation();
         String model = getModelConfigurer(postData);
         String systemRole;
@@ -121,7 +115,7 @@ public class ModelController {
         }
         Message systemMsg =
                 Message.builder().role(Role.SYSTEM.getValue()).content(systemRole).build();
-        Message userMsg = Message.builder().role(Role.USER.getValue()).content(postData.getMessages().content).build();
+        Message userMsg = Message.builder().role(Role.USER.getValue()).content(postData.getQuestion().content).build();
         List<Message> messages = new ArrayList<>();
         messages.add(systemMsg);
         messages.add(userMsg);
@@ -132,25 +126,25 @@ public class ModelController {
                         .apiKey(TONG_YI_API_KEY)
                         .build();
         GenerationResult result = gen.call(param);
-//        Message m = result.getOutput().getChoices().get(0).getMessage();
-        FormerRequest formerRequest = new FormerRequest(result, messages);
-        return formerRequest;
+        return new FormerRequest(result, messages);
+
     }
 
     // get the inner model
-    private String getModelConfigurer(PostData postData) {
+    private static String getModelConfigurer(PostData postData) {
         String upModel = postData.getModel();
-        String model = null;
+        String model = "";
         if (upModel.equals("kimi")) {
             model = postData.getConfig().getKimi().getModel();
         } else if (upModel.equals("qwen")) {
-            model = postData.getConfig().getQwen().getModel();
+//            model = postData.getConfig().getQwen().getModel();
+            model = "qwen1.5-72b-chat";
         }
 
         return model;
     }
 
-    private FormerRequest getNextResponse(@NotNull PostData postData, FormerRequest formerRequest) throws NoApiKeyException, InputRequiredException {
+    private static FormerRequest getNextResponse(@NotNull PostData postData, FormerRequest formerRequest) throws NoApiKeyException, InputRequiredException {
         Generation gen = new Generation();
         String model = getModelConfigurer(postData);
         GenerationParam param =
@@ -164,21 +158,27 @@ public class ModelController {
         List<Message> latterMessage = formerRequest.getMessages();
         latterMessage.add(formerMessage);
         // new message
-        Message userMsg = Message.builder().role(Role.USER.getValue()).content(postData.getMessages().content).build();
+        Message userMsg = Message.builder().role(Role.USER.getValue()).content(postData.getQuestion().content).build();
         latterMessage.add(userMsg);
         GenerationResult result = gen.call(param);
-        FormerRequest formerRequest1 = new FormerRequest(result, formerRequest.getMessages());
-        return formerRequest1;
+        return new FormerRequest(result, formerRequest.getMessages());
     }
 
-    public boolean isAllowedToSendMessage(String key) {
-        Queue<PostData> messages = MULTI_MESSAGES.get(key);
+    private static boolean isAllowedToSendMessage(String key) {
+        Queue<Message> messages = MULTI_MESSAGES.get(key);
 
         return messages.size() < MAX_ATTEMPTS;
     }
 
-    public void incrementMessages(PostData postData) {
-        MULTI_MESSAGES.computeIfAbsent(postData.getKey(), p -> new LinkedList<>()).add(postData);
+    private static void incrementMessages(String key, Message message) {
+        MULTI_MESSAGES.computeIfAbsent(key, p -> new LinkedList<>()).add(message);
+    }
+    
+    private static void removeHeadMessage(String key){
+        Queue<Message> messageQueue = MULTI_MESSAGES.get(key);
+        if (messageQueue != null){
+            messageQueue.poll();
+        }
     }
 
 }
