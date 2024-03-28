@@ -97,7 +97,7 @@ public class PluginController {
                 ImageSynthesisParam.builder()
                         .apiKey(TONG_YI_API_KEY)
                         .model(ImageSynthesis.Models.WANX_V1)
-                        .n(4)
+                        .n(1)
                         .size("1024*1024")
                         .prompt(question)
                         .build();
