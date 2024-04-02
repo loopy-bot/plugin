@@ -18,13 +18,19 @@ import com.loopy.loopy.plugins.common.FormerRequest;
 import com.loopy.loopy.plugins.common.ModelData;
 import com.loopy.loopy.plugins.common.PostData;
 import com.loopy.loopy.plugins.request.ChatRequest;
+import com.loopy.loopy.plugins.request.KimiRequest;
 import com.loopy.loopy.plugins.response.ChatResponse;
+import com.loopy.loopy.plugins.response.KimiResponse;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.*;
+import java.util.List;
 
 
 @RestController
@@ -33,7 +39,9 @@ public class ModelController {
 
     private static final Logger logger = LoggerFactory.getLogger(ModelController.class);
     private static final String TONG_YI_API_KEY = "sk-554382667176404bb1c35d59ac5d4096";
+    private static final String KIMI_API_KEY = "Bearer eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ1c2VyLWNlbnRlciIsImV4cCI6MTcxODg2ODQ2MSwiaWF0IjoxNzExMDkyNDYxLCJqdGkiOiJjbnVqNXJlY3A3ZjRzbXNsbTY1MCIsInR5cCI6InJlZnJlc2giLCJzdWIiOiJjbDRiYTQxcDJrMWZpY2wzbHJ1ZyIsInNwYWNlX2lkIjoiY2w0YmE0MXAyazFmaWNsM2xydTAiLCJhYnN0cmFjdF91c2VyX2lkIjoiY2w0YmE0MXAyazFmaWNsM2xydWcifQ.aNd4hu6sOJXSUZZSiDk2V1c6aki-m-NF1EorCzrIXaex76LUYFZqAHelrYr_k11dF-BNybmgGzUHyaHbZ9CPxw";
     private static final String ALIYUN_CHAT_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation";
+    private static final String KIMI_CHAT_URL = "http://123.60.1.214:8000/v1/chat/completions";
     private static final Map<String, Queue<Message>> MULTI_MESSAGES = new HashMap<>();
     private static final int MAX_ATTEMPTS = 3;
 
@@ -61,23 +69,31 @@ public class ModelController {
 
 
     @PostMapping("/chat")
-    public static AjaxResult chat(@RequestBody PostData postData) throws NoApiKeyException, InputRequiredException {
+    public static AjaxResult chat(@RequestBody PostData postData) throws NoApiKeyException, InputRequiredException, IOException {
         if (postData.getKey() != null) {
-            if (MULTI_MESSAGES.get(postData.getKey()) == null) {
-                //首发
-                formerRequest = getFirstResponse(postData);
-                GenerationResult generationResult = formerRequest.getFormerResult();
-                Message data = generationResult.getOutput().getChoices().get(0).getMessage();
-                incrementMessages(postData.getKey(),data);
-                return AjaxResult.returnSuccessDataResult(data);
-            } else {
-                if (isAllowedToSendMessage(postData.getKey())) {
-                    return getNonFirstResult(postData);
+            if (getModelConfigurer(postData).equals("kimi")){
+                KimiResponse kimiResponse = getKimiResult(postData);
+                KimiResponse.Choice choice = kimiResponse.getChoices().get(0);
+                return AjaxResult.returnSuccessDataResult(choice.getMessage());
+            }
+            else{
+                if (MULTI_MESSAGES.get(postData.getKey()) == null) {
+                    //首发
+                    formerRequest = getFirstResponse(postData);
+                    GenerationResult generationResult = formerRequest.getFormerResult();
+                    Message data = generationResult.getOutput().getChoices().get(0).getMessage();
+                    incrementMessages(postData.getKey(), data);
+                    return AjaxResult.returnSuccessDataResult(data);
                 } else {
-                    removeHeadMessage(postData.getKey());
-                    return getNonFirstResult(postData);
+                    if (isAllowedToSendMessage(postData.getKey())) {
+                        return getNonFirstResult(postData);
+                    } else {
+                        removeHeadMessage(postData.getKey());
+                        return getNonFirstResult(postData);
+                    }
                 }
             }
+
 
         } else {
             return generate(postData);
@@ -89,7 +105,7 @@ public class ModelController {
         formerRequest = getNextResponse(postData, formerRequest);
         GenerationResult generationResult = formerRequest.getFormerResult();
         Message data = generationResult.getOutput().getChoices().get(0).getMessage();
-         incrementMessages(postData.getKey(), data);
+        incrementMessages(postData.getKey(), data);
         return AjaxResult.returnSuccessDataResult(data);
     }
 
@@ -131,12 +147,44 @@ public class ModelController {
 
     }
 
+    private static KimiResponse getKimiResult(PostData postData) throws IOException {
+        String model = getModelConfigurer(postData);
+        List<Message> messageList = new ArrayList<>();
+        Message message = new Message();
+        message.setContent(postData.getQuestion());
+        message.setRole("user");
+        messageList.add(message);
+        URL url = new URL("http://123.60.1.214:8000/v1/chat/completions");
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+        KimiResponse kimiResponse;
+        String result = null;
+        KimiRequest kimiRequest = new KimiRequest(model, messageList, true, false);
+        String json = JSONUtil.toJsonStr(kimiRequest);
+        try {
+            result = HttpRequest.post(KIMI_CHAT_URL)
+                    .header("Authorization", KIMI_API_KEY)
+                    .header("Content-Type", "application/json")
+                    .body(json)
+                    .execute().body();
+            // Process the result
+        } catch (Exception e) {
+            // Handle the exception
+            e.printStackTrace();
+        } finally {
+            logger.info(result);
+            kimiResponse = JSONUtil.toBean(result, KimiResponse.class);
+        }
+
+        return kimiResponse;
+    }
     // get the inner model
     private static String getModelConfigurer(PostData postData) {
         String upModel = postData.getModel();
         String model = "";
         if (upModel.equals("kimi")) {
-            model = postData.getConfig().getKimi().getModel();
+//            model = postData.getConfig().getKimi().getModel();
+            model = "kimi";
         } else if (upModel.equals("qwen")) {
 //            model = postData.getConfig().getQwen().getModel();
             model = "qwen1.5-72b-chat";
