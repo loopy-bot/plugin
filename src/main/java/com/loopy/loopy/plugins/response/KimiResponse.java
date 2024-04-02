@@ -1,9 +1,8 @@
 package com.loopy.loopy.plugins.response;
 
-import com.alibaba.dashscope.common.Message;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
@@ -12,26 +11,49 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class KimiResponse {
-    String id;
-    String model;
-    String object;
-    List<Choice> choices;
-    Usage usage;
-    Long created;
 
+    @JsonProperty("id")
+    private String id;
+    @JsonProperty("model")
+    private String model;
+    @JsonProperty("object")
+    private String object;
+    @JsonProperty("choices")
+    private List<ChoicesDTO> choices;
+    @JsonProperty("usage")
+    private UsageDTO usage;
+    @JsonProperty("created")
+    private Integer created;
 
-    class Usage{
-        int prompt_tokens;
-        int completion_tokens;
-        int total_tokens;
+    @NoArgsConstructor
+    @Data
+    public static class UsageDTO {
+        @JsonProperty("prompt_tokens")
+        private Integer promptTokens;
+        @JsonProperty("completion_tokens")
+        private Integer completionTokens;
+        @JsonProperty("total_tokens")
+        private Integer totalTokens;
     }
-   public class Choice{
-        int index;
 
-        @Getter
-        Message message;
-        String finish_reason;
+    @NoArgsConstructor
+    @Data
+    public static class ChoicesDTO {
+        @JsonProperty("index")
+        private Integer index;
+        @JsonProperty("message")
+        private MessageDTO message;
+        @JsonProperty("finish_reason")
+        private String finishReason;
 
+        @NoArgsConstructor
+        @Data
+        public static class MessageDTO {
+            @JsonProperty("role")
+            private String role;
+            @JsonProperty("content")
+            private String content;
+        }
     }
 }
 

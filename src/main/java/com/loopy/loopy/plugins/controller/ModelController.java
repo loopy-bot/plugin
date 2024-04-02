@@ -73,7 +73,7 @@ public class ModelController {
         if (postData.getKey() != null) {
             if (getModelConfigurer(postData).equals("kimi")){
                 KimiResponse kimiResponse = getKimiResult(postData);
-                KimiResponse.Choice choice = kimiResponse.getChoices().get(0);
+                KimiResponse.ChoicesDTO choice = kimiResponse.getChoices().get(0);
                 return AjaxResult.returnSuccessDataResult(choice.getMessage());
             }
             else{
