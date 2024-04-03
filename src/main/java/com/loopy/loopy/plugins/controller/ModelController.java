@@ -59,19 +59,26 @@ public class ModelController {
     @PostMapping("/chat")
     public static AjaxResult chat(@RequestBody PostData postData) throws NoApiKeyException, InputRequiredException{
         if (postData.getKey() != null) {
+            KimiResponse kimiResponse;
             if (getModelConfigurer(postData).equals("kimi")){
-                KimiResponse kimiResponse = getKimiResult(postData);
+                if (MULTI_MESSAGES.get(postData.getKey()) == null) {
+                    kimiResponse = getFirstKimiResult(postData);
+                }
+                else{
+                    kimiResponse = getKimiResult(postData);
+                }
                 KimiResponse.ChoicesDTO choice = kimiResponse.getChoices().get(0);
                 return AjaxResult.returnSuccessDataResult(choice.getMessage());
             }
             else{
+                Message qwenAnswer;
                 if (MULTI_MESSAGES.get(postData.getKey()) == null) {
                     //首发
-                    Message firstAnswer = getFirstResponse(postData);
-                    return AjaxResult.returnSuccessDataResult(firstAnswer.getContent());
+                    qwenAnswer = getFirstResponse(postData);
+                    return AjaxResult.returnSuccessDataResult(qwenAnswer.getContent());
                 } else {
-                    Message nextAnswer = getNextResponse(postData);
-                    return AjaxResult.returnSuccessDataResult(nextAnswer);
+                    qwenAnswer = getNextResponse(postData);
+                    return AjaxResult.returnSuccessDataResult(qwenAnswer.getContent());
                 }
             }
 
@@ -123,9 +130,46 @@ public class ModelController {
 
     }
 
+    private static KimiResponse getFirstKimiResult(PostData postData) {
+        String model = getModelConfigurer(postData);
+        String personality = "assistant";
+        if (postData.getPersonality() != null) {
+            personality = postData.getPersonality();
+        }
+        Message systemMsg =
+                Message.builder().role(Role.SYSTEM.getValue()).content(personality).build();
+        List<Message> messageList = new LinkedList<>();
+        Message message = new Message();
+        message.setContent(postData.getQuestion());
+        message.setRole("user");
+        messageList.add(systemMsg);
+        messageList.add(message);
+
+        KimiResponse kimiResponse;
+        String result = null;
+        KimiRequest kimiRequest = new KimiRequest(model, messageList, true, false);
+        String json = JSONUtil.toJsonStr(kimiRequest);
+        try {
+            result = HttpRequest.post(KIMI_CHAT_URL)
+                    .header("Authorization", KIMI_API_KEY)
+                    .header("Content-Type", "application/json")
+                    .body(json)
+                    .execute().body();
+            // Process the result
+        } catch (Exception e) {
+            // Handle the exception
+            e.printStackTrace();
+        } finally {
+            logger.info(result);
+            kimiResponse = JSONUtil.toBean(result, KimiResponse.class);
+        }
+        messageList.add(kimiResponse.getChoices().get(0).getMessage());
+        MULTI_MESSAGES.put(postData.getKey(), (Queue<Message>) messageList);
+        return kimiResponse;
+    }
     private static KimiResponse getKimiResult(PostData postData) {
         String model = getModelConfigurer(postData);
-        List<Message> messageList = new ArrayList<>();
+        List<Message> messageList = new LinkedList<>();
         Message message = new Message();
         message.setContent(postData.getQuestion());
         message.setRole("user");
@@ -149,6 +193,16 @@ public class ModelController {
             logger.info(result);
             kimiResponse = JSONUtil.toBean(result, KimiResponse.class);
         }
+        List<Message> messages = new LinkedList<>(MULTI_MESSAGES.get(postData.getKey()));
+
+        if (messages.size() == 7){
+            messages.remove(1);
+            messages.remove(1);
+            MULTI_MESSAGES.get(postData.getKey()).clear();
+            MULTI_MESSAGES.get(postData.getKey()).addAll(messageList);
+        }
+        incrementMessages(postData.getKey(), message);
+        incrementMessages(postData.getKey(), kimiResponse.getChoices().get(0).getMessage());
 
         return kimiResponse;
     }
@@ -182,9 +236,10 @@ public class ModelController {
         if (messageList.size() == 7){
             messageList.remove(1);
             messageList.remove(1);
+            MULTI_MESSAGES.get(postData.getKey()).clear();
+            MULTI_MESSAGES.get(postData.getKey()).addAll(messageList);
         }
-        MULTI_MESSAGES.get(postData.getKey()).clear();
-        MULTI_MESSAGES.get(postData.getKey()).addAll(messageList);
+
         // new question
         Message userMsg = Message.builder().role(Role.USER.getValue()).content(postData.getQuestion()).build();
         messageList.add(userMsg);

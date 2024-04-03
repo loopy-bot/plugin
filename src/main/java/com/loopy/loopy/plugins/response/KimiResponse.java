@@ -1,5 +1,6 @@
 package com.loopy.loopy.plugins.response;
 
+import com.alibaba.dashscope.common.Message;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -42,18 +43,10 @@ public class KimiResponse {
         @JsonProperty("index")
         private Integer index;
         @JsonProperty("message")
-        private MessageDTO message;
+        private Message message;
         @JsonProperty("finish_reason")
         private String finishReason;
 
-        @NoArgsConstructor
-        @Data
-        public static class MessageDTO {
-            @JsonProperty("role")
-            private String role;
-            @JsonProperty("content")
-            private String content;
-        }
     }
 }
 
