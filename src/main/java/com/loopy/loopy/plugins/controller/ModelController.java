@@ -14,7 +14,6 @@ import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.loopy.loopy.plugins.Engine.AbstractEngine;
 import com.loopy.loopy.plugins.Engine.EngineFactory;
 import com.loopy.loopy.plugins.common.AjaxResult;
-import com.loopy.loopy.plugins.common.FormerRequest;
 import com.loopy.loopy.plugins.common.ModelData;
 import com.loopy.loopy.plugins.common.PostData;
 import com.loopy.loopy.plugins.request.ChatRequest;
@@ -26,9 +25,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.*;
 import java.util.List;
 
@@ -43,15 +39,10 @@ public class ModelController {
     private static final String ALIYUN_CHAT_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation";
     private static final String KIMI_CHAT_URL = "http://123.60.1.214:8000/v1/chat/completions";
     private static final Map<String, Queue<Message>> MULTI_MESSAGES = new HashMap<>();
-    private static final int MAX_ATTEMPTS = 7;
-
-    private static FormerRequest formerRequest;
-
-    private static String personality;
 
 
     @PostMapping("/generate")
-    public static AjaxResult generate(@RequestBody PostData postData) throws IOException {
+    public static AjaxResult generate(@RequestBody PostData postData) {
         String model = getModelConfigurer(postData);
         String text = "";
         if (model.equals("kimi")){
@@ -66,7 +57,7 @@ public class ModelController {
 
 
     @PostMapping("/chat")
-    public static AjaxResult chat(@RequestBody PostData postData) throws NoApiKeyException, InputRequiredException, IOException {
+    public static AjaxResult chat(@RequestBody PostData postData) throws NoApiKeyException, InputRequiredException{
         if (postData.getKey() != null) {
             if (getModelConfigurer(postData).equals("kimi")){
                 KimiResponse kimiResponse = getKimiResult(postData);
@@ -79,7 +70,7 @@ public class ModelController {
                     Message firstAnswer = getFirstResponse(postData);
                     return AjaxResult.returnSuccessDataResult(firstAnswer.getContent());
                 } else {
-                    Message nextAnswer = getNonFirstResult(postData);
+                    Message nextAnswer = getNextResponse(postData);
                     return AjaxResult.returnSuccessDataResult(nextAnswer);
                 }
             }
@@ -90,11 +81,6 @@ public class ModelController {
         }
     }
 
-    @NotNull
-    private static Message getNonFirstResult(PostData postData) throws NoApiKeyException, InputRequiredException {
-        Message nextAnswer = getNextResponse(postData);
-        return nextAnswer;
-    }
 
     @PostMapping("/ti-an")
     public AjaxResult getTianXingResponse(@RequestBody String question) {
@@ -112,10 +98,9 @@ public class ModelController {
     private static Message getFirstResponse(PostData postData) throws NoApiKeyException, InputRequiredException {
         Generation gen = new Generation();
         String model = getModelConfigurer(postData);
+        String personality = "assistant";
         if (postData.getPersonality() != null) {
             personality = postData.getPersonality();
-        } else {
-            personality = "assistant";
         }
         Message systemMsg =
                 Message.builder().role(Role.SYSTEM.getValue()).content(personality).build();
@@ -138,15 +123,13 @@ public class ModelController {
 
     }
 
-    private static KimiResponse getKimiResult(PostData postData) throws IOException {
+    private static KimiResponse getKimiResult(PostData postData) {
         String model = getModelConfigurer(postData);
         List<Message> messageList = new ArrayList<>();
         Message message = new Message();
         message.setContent(postData.getQuestion());
         message.setRole("user");
         messageList.add(message);
-        URL url = new URL("http://123.60.1.214:8000/v1/chat/completions");
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
         KimiResponse kimiResponse;
         String result = null;
@@ -224,25 +207,11 @@ public class ModelController {
                 .execute().body();
         logger.info(result);
         ChatResponse chatResponse = JSONUtil.toBean(result, ChatResponse.class);
-        String text = chatResponse.getOutput().getText();
-        return text;
+        return chatResponse.getOutput().getText();
     }
-
-//    private static boolean isAllowedToSendMessage(String key) {
-//        Queue<Message> messages = MULTI_MESSAGES.get(key);
-//
-//        return messages.size() < MAX_ATTEMPTS;
-//    }
 
     private static void incrementMessages(String key, Message message) {
         MULTI_MESSAGES.computeIfAbsent(key, p -> new LinkedList<>()).add(message);
     }
-    
-//    private static void removeHeadMessage(String key){
-//        Queue<Message> messageQueue = MULTI_MESSAGES.get(key);
-//        if (messageQueue != null){
-//            messageQueue.poll();
-//        }
-//    }
 
 }
