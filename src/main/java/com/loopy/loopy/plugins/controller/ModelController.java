@@ -43,7 +43,7 @@ public class ModelController {
     private static final String ALIYUN_CHAT_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation";
     private static final String KIMI_CHAT_URL = "http://123.60.1.214:8000/v1/chat/completions";
     private static final Map<String, Queue<Message>> MULTI_MESSAGES = new HashMap<>();
-    private static final int MAX_ATTEMPTS = 3;
+    private static final int MAX_ATTEMPTS = 7;
 
     private static FormerRequest formerRequest;
 
@@ -76,18 +76,11 @@ public class ModelController {
             else{
                 if (MULTI_MESSAGES.get(postData.getKey()) == null) {
                     //首发
-                    formerRequest = getFirstResponse(postData);
-                    GenerationResult generationResult = formerRequest.getFormerResult();
-                    Message data = generationResult.getOutput().getChoices().get(0).getMessage();
-                    incrementMessages(postData.getKey(), data);
-                    return AjaxResult.returnSuccessDataResult(data);
+                    Message firstAnswer = getFirstResponse(postData);
+                    return AjaxResult.returnSuccessDataResult(firstAnswer.getContent());
                 } else {
-                    if (isAllowedToSendMessage(postData.getKey())) {
-                        return getNonFirstResult(postData);
-                    } else {
-                        removeHeadMessage(postData.getKey());
-                        return getNonFirstResult(postData);
-                    }
+                    Message nextAnswer = getNonFirstResult(postData);
+                    return AjaxResult.returnSuccessDataResult(nextAnswer);
                 }
             }
 
@@ -98,12 +91,9 @@ public class ModelController {
     }
 
     @NotNull
-    private static AjaxResult getNonFirstResult(PostData postData) throws NoApiKeyException, InputRequiredException {
-        formerRequest = getNextResponse(postData, formerRequest);
-        GenerationResult generationResult = formerRequest.getFormerResult();
-        Message data = generationResult.getOutput().getChoices().get(0).getMessage();
-        incrementMessages(postData.getKey(), data);
-        return AjaxResult.returnSuccessDataResult(data);
+    private static Message getNonFirstResult(PostData postData) throws NoApiKeyException, InputRequiredException {
+        Message nextAnswer = getNextResponse(postData);
+        return nextAnswer;
     }
 
     @PostMapping("/ti-an")
@@ -119,7 +109,7 @@ public class ModelController {
         return AjaxResult.error("目前没有相关的接口回答您的问题");
     }
 
-    private static FormerRequest getFirstResponse(PostData postData) throws NoApiKeyException, InputRequiredException {
+    private static Message getFirstResponse(PostData postData) throws NoApiKeyException, InputRequiredException {
         Generation gen = new Generation();
         String model = getModelConfigurer(postData);
         if (postData.getPersonality() != null) {
@@ -140,7 +130,11 @@ public class ModelController {
                         .apiKey(TONG_YI_API_KEY)
                         .build();
         GenerationResult result = gen.call(param);
-        return new FormerRequest(result, messages);
+        Message firstAnswer = result.getOutput().getChoices().get(0).getMessage();
+        incrementMessages(postData.getKey(), systemMsg);
+        incrementMessages(postData.getKey(), userMsg);
+        incrementMessages(postData.getKey(), firstAnswer);
+        return firstAnswer;
 
     }
 
@@ -190,28 +184,32 @@ public class ModelController {
         return model;
     }
 
-    private static FormerRequest getNextResponse(@NotNull PostData postData, FormerRequest formerRequest) throws NoApiKeyException, InputRequiredException {
+    private static Message getNextResponse(@NotNull PostData postData) throws NoApiKeyException, InputRequiredException {
         Generation gen = new Generation();
         String model = getModelConfigurer(postData);
+        Queue<Message> messages = MULTI_MESSAGES.get(postData.getKey());
+        List<Message> messageList = new LinkedList<>(messages);
         GenerationParam param =
-                GenerationParam.builder().model(model).messages(formerRequest.getMessages())
+                GenerationParam.builder().model(model).messages(messageList)
                         .resultFormat(GenerationParam.ResultFormat.MESSAGE)
                         .topP(0.8)
                         .apiKey(TONG_YI_API_KEY)
                         .build();
-        // 添加assistant返回到messages列表，user/assistant消息必须交替出现
-        Message formerMessage = formerRequest.getFormerResult().getOutput().getChoices().get(0).getMessage();
-        List<Message> latterMessage = formerRequest.getMessages();
-        latterMessage.add(formerMessage);
-        if (latterMessage.size() == 7){
-            latterMessage.remove(1);
-            latterMessage.remove(1);
+
+        if (messageList.size() == 7){
+            messageList.remove(1);
+            messageList.remove(1);
         }
-        // new message
+        MULTI_MESSAGES.get(postData.getKey()).clear();
+        MULTI_MESSAGES.get(postData.getKey()).addAll(messageList);
+        // new question
         Message userMsg = Message.builder().role(Role.USER.getValue()).content(postData.getQuestion()).build();
-        latterMessage.add(userMsg);
+        messageList.add(userMsg);
         GenerationResult result = gen.call(param);
-        return new FormerRequest(result, formerRequest.getMessages());
+        Message nextAnswer = result.getOutput().getChoices().get(0).getMessage();
+        incrementMessages(postData.getKey(),userMsg);
+        incrementMessages(postData.getKey(),nextAnswer);
+        return nextAnswer;
     }
 
 
@@ -230,21 +228,21 @@ public class ModelController {
         return text;
     }
 
-    private static boolean isAllowedToSendMessage(String key) {
-        Queue<Message> messages = MULTI_MESSAGES.get(key);
-
-        return messages.size() < MAX_ATTEMPTS;
-    }
+//    private static boolean isAllowedToSendMessage(String key) {
+//        Queue<Message> messages = MULTI_MESSAGES.get(key);
+//
+//        return messages.size() < MAX_ATTEMPTS;
+//    }
 
     private static void incrementMessages(String key, Message message) {
         MULTI_MESSAGES.computeIfAbsent(key, p -> new LinkedList<>()).add(message);
     }
     
-    private static void removeHeadMessage(String key){
-        Queue<Message> messageQueue = MULTI_MESSAGES.get(key);
-        if (messageQueue != null){
-            messageQueue.poll();
-        }
-    }
+//    private static void removeHeadMessage(String key){
+//        Queue<Message> messageQueue = MULTI_MESSAGES.get(key);
+//        if (messageQueue != null){
+//            messageQueue.poll();
+//        }
+//    }
 
 }
