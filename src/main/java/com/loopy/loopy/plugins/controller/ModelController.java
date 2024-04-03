@@ -51,19 +51,16 @@ public class ModelController {
 
 
     @PostMapping("/generate")
-    public static AjaxResult generate(@RequestBody PostData postData) {
+    public static AjaxResult generate(@RequestBody PostData postData) throws IOException {
         String model = getModelConfigurer(postData);
-        ChatRequest chatRequest = new ChatRequest(postData.getQuestion(), model);
-        String json = JSONUtil.toJsonStr(chatRequest);
-        //System.out.println(json);//正式发送给api前,查看请求的主要数据情况
-        String result = HttpRequest.post(ALIYUN_CHAT_URL)
-                .header("Authorization", "Bearer " + TONG_YI_API_KEY)
-                .header("Content-Type", "application/json")
-                .body(json)
-                .execute().body();
-        logger.info(result);
-        ChatResponse chatResponse = JSONUtil.toBean(result, ChatResponse.class);
-        String text = chatResponse.getOutput().getText();
+        String text = "";
+        if (model.equals("kimi")){
+            KimiResponse kimiResponse = getKimiResult(postData);
+            KimiResponse.ChoicesDTO choice = kimiResponse.getChoices().get(0);
+            text = choice.getMessage().getContent();
+        } else if (model.equals("qwen1.5-72b-chat")) {
+            text = getQwenResult(postData, model);
+        }
         return AjaxResult.returnSuccessDataResult(new ModelData("assistant", text));
     }
 
@@ -215,6 +212,22 @@ public class ModelController {
         latterMessage.add(userMsg);
         GenerationResult result = gen.call(param);
         return new FormerRequest(result, formerRequest.getMessages());
+    }
+
+
+    private static String getQwenResult(PostData postData, String model){
+        ChatRequest chatRequest = new ChatRequest(postData.getQuestion(), model);
+        String json = JSONUtil.toJsonStr(chatRequest);
+        //System.out.println(json);//正式发送给api前,查看请求的主要数据情况
+        String result = HttpRequest.post(ALIYUN_CHAT_URL)
+                .header("Authorization", "Bearer " + TONG_YI_API_KEY)
+                .header("Content-Type", "application/json")
+                .body(json)
+                .execute().body();
+        logger.info(result);
+        ChatResponse chatResponse = JSONUtil.toBean(result, ChatResponse.class);
+        String text = chatResponse.getOutput().getText();
+        return text;
     }
 
     private static boolean isAllowedToSendMessage(String key) {
