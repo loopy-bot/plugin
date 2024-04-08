@@ -1,4 +1,4 @@
-package com.loopy.loopy.plugins.Engine;
+package com.loopy.loopy.plugins.engine;
 
 import org.springframework.util.StringUtils;
 

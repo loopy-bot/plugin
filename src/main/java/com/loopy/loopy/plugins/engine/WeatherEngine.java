@@ -1,6 +1,5 @@
-package com.loopy.loopy.plugins.Engine;
+package com.loopy.loopy.plugins.engine;
 
-import com.loopy.loopy.plugins.common.AjaxResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -13,22 +12,21 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Component
-public class MapEngine extends AbstractEngine{
+public class WeatherEngine extends AbstractEngine {
 
-    private static final String MAP = "地图";
+    private static final String WEATHER = "天气";
 
-     private static final Logger logger = LoggerFactory.getLogger(MapEngine.class);
-
-    private static final String CITY_LOOKUP_URL = "https://apis.tianapi.com/citylookup/index";
+     private static final Logger logger = LoggerFactory.getLogger(WeatherEngine.class);
 
     private static final String TIAN_XING_API_KEY = "48c431c1b759a2b6882e960d24a3403c";
 
+
     @Override
     public String getAnswer(String question) {
+        String answer = "";
         String city = extractCity(question);
-        String tianApiData = "";
         try {
-            URL url = new URL(CITY_LOOKUP_URL);
+            URL url = new URL("https://apis.tianapi.com/tianqi/index");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setConnectTimeout(5000);
@@ -36,30 +34,30 @@ public class MapEngine extends AbstractEngine{
             conn.setDoOutput(true);
             conn.setRequestProperty("content-type", "application/x-www-form-urlencoded");
             OutputStream outputStream = conn.getOutputStream();
-            String content = "key="+TIAN_XING_API_KEY+"&area="+city;
+            String content = "key="+TIAN_XING_API_KEY+"&city="+city+"&type=1";
             outputStream.write(content.getBytes());
             outputStream.flush();
             outputStream.close();
             InputStream inputStream = conn.getInputStream();
             InputStreamReader inputStreamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
             BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
-            StringBuilder tianapi = new StringBuilder();
+            StringBuilder stringBuilder = new StringBuilder();
             String temp = null;
             while (null != (temp = bufferedReader.readLine())) {
-                tianapi.append(temp);
+                stringBuilder.append(temp);
             }
-            tianApiData = tianapi.toString();
+            answer = stringBuilder.toString();
             inputStream.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
-        logger.info(tianApiData);
-        return tianApiData;
+        logger.info(answer);
+        return answer;
     }
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        EngineFactory.register(MAP, this);
+        EngineFactory.register(WEATHER, this);
     }
 
     public static String extractCity(String text) {
@@ -68,11 +66,7 @@ public class MapEngine extends AbstractEngine{
         Matcher matcher = pattern.matcher(text);
 
         if (matcher.find()) {
-            String cityName = matcher.group(1);
-            cityName = cityName.replace("市", "").replace("县", "")
-                    .replace("自治区", "")
-                    .replace("市自治区", "");
-            return cityName;
+            return matcher.group(1);
         }
         return null;
     }
