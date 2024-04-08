@@ -39,7 +39,7 @@ public class PluginController {
     public String imagePath;
 
     private static final Logger logger = LoggerFactory.getLogger(PluginController.class);
-    private static final String TONG_YI_API_KEY = "sk-554382667176404bb1c35d59ac5d4096";
+    private static final String TONG_YI_API_KEY = "sk-983cdd6a15684c1ab020bcdf00a82c60";
     private static final String ALIYUN_CHAT_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation";
     private static final String AUDIO_MODEL = "sambert-zhistella-v1";
 
