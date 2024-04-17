@@ -23,11 +23,6 @@ public class Kimi extends AbstractModel{
      private static final String KIMI_API_KEY = "Bearer eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ1c2VyLWNlbnRlciIsImV4cCI6MTcxODg2ODQ2MSwiaWF0IjoxNzExMDkyNDYxLCJqdGkiOiJjbnVqNXJlY3A3ZjRzbXNsbTY1MCIsInR5cCI6InJlZnJlc2giLCJzdWIiOiJjbDRiYTQxcDJrMWZpY2wzbHJ1ZyIsInNwYWNlX2lkIjoiY2w0YmE0MXAyazFmaWNsM2xydTAiLCJhYnN0cmFjdF91c2VyX2lkIjoiY2w0YmE0MXAyazFmaWNsM2xydWcifQ.aNd4hu6sOJXSUZZSiDk2V1c6aki-m-NF1EorCzrIXaex76LUYFZqAHelrYr_k11dF-BNybmgGzUHyaHbZ9CPxw";
      private static final String KIMI_CHAT_URL = "http://123.60.1.214:8000/v1/chat/completions";
      private static final Logger logger = LoggerFactory.getLogger(Kimi.class);
-     private Configuration config;
-
-     class Configuration extends Config {
-
-     }
 
      @Override
      public Message reply(List<Message> messages, Config config) {
