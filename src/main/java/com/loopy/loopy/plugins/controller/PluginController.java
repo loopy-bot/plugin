@@ -117,6 +117,24 @@ public class PluginController {
         return AjaxResult.returnSuccessDataResult(pluginData);
     }
 
+    @PostMapping("/drawonly")
+    public List<Map<String, String>> draw(@RequestBody String question) throws NoApiKeyException {
+
+        ImageSynthesis is = new ImageSynthesis();
+        ImageSynthesisParam param =
+                ImageSynthesisParam.builder()
+                        .apiKey(TONG_YI_API_KEY)
+                        .model(ImageSynthesis.Models.WANX_V1)
+                        .n(4)
+                        .size("1024*1024")
+                        .prompt(question)
+                        .build();
+
+        ImageSynthesisResult result = is.call(param);
+
+        List<Map<String, String>> results = result.getOutput().getResults();
+        return  results;
+    }
 
     public String saveImage(String imageUrl) {
         try {
